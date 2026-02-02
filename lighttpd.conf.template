@@ -1,0 +1,75 @@
+server.modules += ( "mod_proxy", "mod_setenv", "mod_rewrite" )
+
+server.document-root = "/var/www/localhost/htdocs" 
+server.port = ${PORT}
+server.bind = "0.0.0.0"
+
+# Mime types
+mimetype.assign = (
+  ".html" => "text/html", 
+  ".txt" => "text/plain",
+  ".jpg" => "image/jpeg",
+  ".png" => "image/png" 
+)
+
+# Health check endpoint
+$HTTP["url"] == "/health" {
+    # Serve the static health.txt file created in Dockerfile
+    # We use rewrite to map /health to /health.txt
+    url.rewrite-once = ( "^/health$" => "/health.txt" )
+    setenv.add-response-header = ( 
+        "Access-Control-Allow-Origin" => "*",
+        "Content-Type" => "text/plain" 
+    )
+}
+
+# Static Assets Proxy -> Stunnel port 8081
+$HTTP["url"] =~ "^/static" {
+    proxy.server = ( "" => ( ( "host" => "127.0.0.1", "port" => 8081 ) ) )
+    
+    # Rewrite Host header to match the destination
+    setenv.set-request-header = ( "Host" => "${POSTHOG_CLOUD_REGION}-assets.i.posthog.com" )
+    
+    # Remove upstream CORS headers (by setting to empty)
+    setenv.set-response-header += ( 
+        "Access-Control-Allow-Origin" => "",
+        "Access-Control-Allow-Methods" => "",
+        "Access-Control-Allow-Headers" => "",
+        "Access-Control-Expose-Headers" => ""
+    )
+    
+    # Add our own CORS headers
+    setenv.add-response-header += (
+        "Access-Control-Allow-Origin" => "*",
+        "Access-Control-Allow-Methods" => "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers" => "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range",
+        "Access-Control-Expose-Headers" => "Content-Length,Content-Range"
+    )
+}
+
+# Main API Proxy -> Stunnel port 8082
+$HTTP["url"] !~ "^/static|/health" {
+    proxy.server = ( "" => ( ( "host" => "127.0.0.1", "port" => 8082 ) ) )
+    
+    # Rewrite Host header to match the destination
+    setenv.set-request-header = ( "Host" => "${POSTHOG_CLOUD_REGION}.i.posthog.com" )
+    
+    # Remove upstream CORS headers
+    setenv.set-response-header += ( 
+        "Access-Control-Allow-Origin" => "",
+        "Access-Control-Allow-Methods" => "",
+        "Access-Control-Allow-Headers" => "",
+        "Access-Control-Expose-Headers" => ""
+    )
+    
+    # Add our own CORS headers
+    setenv.add-response-header += (
+        "Access-Control-Allow-Origin" => "*",
+        "Access-Control-Allow-Methods" => "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers" => "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range",
+        "Access-Control-Expose-Headers" => "Content-Length,Content-Range"
+    )
+}
+
+# Support large uploads (matching Nginx 64M)
+server.max-request-size = 65000

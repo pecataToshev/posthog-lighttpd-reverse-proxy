@@ -1,0 +1,20 @@
+foreground = no
+pid = /run/stunnel.pid
+socket = l:TCP_NODELAY=1
+socket = r:TCP_NODELAY=1
+
+[assets]
+client = yes
+accept = 127.0.0.1:8081
+connect = ${POSTHOG_CLOUD_REGION}-assets.i.posthog.com:443
+sni = ${POSTHOG_CLOUD_REGION}-assets.i.posthog.com
+verifyChain = yes
+CAfile = /etc/ssl/certs/ca-certificates.crt
+
+[api]
+client = yes
+accept = 127.0.0.1:8082
+connect = ${POSTHOG_CLOUD_REGION}.i.posthog.com:443
+sni = ${POSTHOG_CLOUD_REGION}.i.posthog.com
+verifyChain = yes
+CAfile = /etc/ssl/certs/ca-certificates.crt
