@@ -28,9 +28,6 @@ FROM alpine:latest
 # Install runtime dependencies only
 RUN apk add --no-cache \
     lighttpd \
-    lighttpd-mod-proxy \
-    lighttpd-mod-setenv \
-    lighttpd-mod-rewrite \
     stunnel \
     ca-certificates
 
